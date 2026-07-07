@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource}; script-src 'nonce-${nonce}';" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="${styleUri}" />
+    <title>AI Orchestrator</title>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <h1>AI Orchestrator</h1>
+        <p>Route coding prompts into independent or queued AI tasks.</p>
+      </header>
+
+      <section class="prompt-card">
+        <label for="prompt-input">Prompt</label>
+        <textarea id="prompt-input" rows="5" placeholder="Describe the coding task to route..."></textarea>
+        <div class="prompt-actions">
+          <button id="submit-button">Submit</button>
+          <button id="clear-completed-button" class="secondary">Clear completed</button>
+        </div>
+      </section>
+
+      <section class="locks-card">
+        <h2>Locked files</h2>
+        <div id="locks"></div>
+      </section>
+
+      <section class="bucket">
+        <h2>Active tasks</h2>
+        <div id="active-tasks" class="task-list"></div>
+      </section>
+
+      <section class="bucket">
+        <h2>Queued tasks</h2>
+        <div id="queued-tasks" class="task-list"></div>
+      </section>
+
+      <section class="bucket">
+        <h2>Completed tasks</h2>
+        <div id="completed-tasks" class="task-list"></div>
+      </section>
+
+      <section class="bucket">
+        <h2>Failed / blocked tasks</h2>
+        <div id="failed-tasks" class="task-list"></div>
+      </section>
+    </main>
+
+    <script nonce="${nonce}" src="${scriptUri}"></script>
+  </body>
+</html>

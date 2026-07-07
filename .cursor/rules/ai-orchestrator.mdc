@@ -1,0 +1,326 @@
+---
+description: Lightweight Cursor AI task orchestration MVP
+alwaysApply: false
+---
+
+# AI Orchestrator Rule
+
+You are an expert TypeScript, VS Code extension, Cursor extension, AI agent orchestration, and developer tooling engineer.
+
+I want to build a lightweight orchestration system for Cursor.
+
+The goal is to let the user submit coding prompts continuously, without waiting for the previous AI task to finish. The system should classify each new prompt and decide whether it belongs to an existing running task or should become a new independent task.
+
+Important constraint:
+Do not rely on private/internal Cursor Chat APIs. Build this as a normal VS Code/Cursor extension with its own side panel. The user will type prompts into this extension panel, not the native Cursor chat box.
+
+Core concept:
+When the user submits a prompt, the orchestrator should analyze:
+
+1. The new user prompt
+2. Existing running tasks
+3. Existing queued tasks
+4. Files currently being modified
+5. Git diff / recent changes
+6. Project structure
+7. Task summaries
+8. Possible file conflicts
+
+Then it should decide one of these actions:
+
+* create_new_task
+* append_to_existing_task
+* queue_behind_conflicting_task
+* ask_user_clarification
+
+The main behavior:
+If the new prompt is unrelated to active tasks, create a new task thread and start processing it independently.
+If the new prompt is related to an active task, add it to that task's queue.
+If the new prompt might modify files already locked by another task, queue it behind the conflicting task.
+If the classifier is not confident, ask the user a short clarification question.
+
+Use this architecture:
+
+Cursor / VS Code Extension
+
+* Provides a sidebar webview called "AI Orchestrator"
+* Has one prompt input box
+* Shows active tasks, queued tasks, completed tasks, and failed tasks
+* Shows each task's title, status, confidence, queue length, files touched, and latest summary
+* Allows canceling, pausing, resuming, and manually reassigning prompts between tasks
+
+Task Orchestrator
+
+* Stores task state
+* Routes new prompts
+* Maintains file locks
+* Maintains task queues
+* Starts worker agents
+* Updates task summaries after each step
+* Prevents two tasks from editing the same file at the same time
+
+AI Classifier
+
+* Receives the new prompt and a compact JSON summary of active tasks
+* Returns strict JSON
+* Must classify whether the prompt belongs to an existing task or a new task
+* Must estimate affected files or areas
+* Must provide confidence and a short reason
+
+Worker Agent
+
+* Executes one task at a time
+* Can read workspace files
+* Can propose edits
+* Can apply edits through the VS Code workspace API
+* Can run terminal commands if enabled
+* Can update task summary
+* Can mark a task done, failed, or blocked
+
+Do not build a huge complex system at first. Build a clean MVP.
+
+MVP requirements:
+
+1. Create a VS Code-compatible extension in TypeScript.
+2. Add a sidebar webview named "AI Orchestrator".
+3. The webview should contain:
+    * Prompt input
+    * Submit button
+    * Active task list
+    * Queued task list
+    * Completed task list
+4. Implement task data structures:
+    * Task
+    * UserPrompt
+    * RoutingDecision
+    * FileLock
+5. Implement an in-memory task store first.
+6. Implement a simple persistence layer using VS Code globalState or workspaceState.
+7. Implement a classifier service.
+8. For now, the classifier can call an external LLM API through a clean interface.
+9. The classifier must return strict JSON.
+10. Implement file conflict detection.
+11. Implement queueing behavior.
+12. Implement a mock worker agent first.
+13. The mock worker should simulate processing and update task status.
+14. Structure the code so the mock worker can later be replaced with a real coding agent.
+15. Add clear extension commands:
+
+* AI Orchestrator: Open Panel
+* AI Orchestrator: Submit Prompt
+* AI Orchestrator: Clear Completed Tasks
+* AI Orchestrator: Cancel Task
+
+16. Add comments explaining where Cursor SDK, MCP, or a real agent runner could be integrated later.
+
+Use these TypeScript types:
+
+```ts
+type TaskStatus =
+  | "running"
+  | "queued"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "blocked";
+type RoutingAction =
+  | "create_new_task"
+  | "append_to_existing_task"
+  | "queue_behind_conflicting_task"
+  | "ask_user_clarification";
+type UserPrompt = {
+  id: string;
+  text: string;
+  createdAt: number;
+};
+type Task = {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  summary: string;
+  prompts: UserPrompt[];
+  queue: UserPrompt[];
+  filesTouched: string[];
+  predictedFiles: string[];
+  featureAreas: string[];
+  createdAt: number;
+  updatedAt: number;
+};
+type RoutingDecision = {
+  action: RoutingAction;
+  targetTaskId?: string;
+  confidence: number;
+  reason: string;
+  predictedFiles: string[];
+  featureAreas: string[];
+  clarificationQuestion?: string;
+};
+type FileLock = {
+  filePath: string;
+  taskId: string;
+  lockedAt: number;
+};
+```
+
+Classifier prompt:
+
+You are a coding task router.
+
+You receive:
+
+1. A new user prompt
+2. Active running tasks
+3. Queued tasks
+4. Completed task summaries
+5. Known locked files
+6. Recent git diff files
+7. Project structure summary
+
+Your job is to decide whether the new prompt should start a new task, be appended to an existing task, be queued behind a conflicting task, or require clarification.
+
+A prompt is related to an existing task if it likely affects the same feature, same files, same bug, same UI flow, same data model, same backend endpoint, same Unity script, same database rule, same build system, or same implementation context.
+
+A prompt should become a new task if it can likely be worked on independently without touching the same files or depending on the result of an active task.
+
+A prompt should be queued behind a conflicting task if it is conceptually different but likely needs to edit files currently locked by another running task.
+
+Ask clarification only when the prompt is too vague or when routing confidence is below 0.55.
+
+Return strict JSON only with this schema:
+
+```json
+{
+  "action": "create_new_task | append_to_existing_task | queue_behind_conflicting_task | ask_user_clarification",
+  "targetTaskId": "string or undefined",
+  "confidence": 0.0,
+  "reason": "short reason",
+  "predictedFiles": ["array of likely files"],
+  "featureAreas": ["array of areas"],
+  "clarificationQuestion": "only if needed"
+}
+```
+
+Examples:
+
+Example 1:
+Existing task:
+"Fix Firebase email verification during signup"
+New prompt:
+"Also prevent users from making themselves admin in the database"
+Decision:
+append_to_existing_task
+Reason:
+Both are auth/security-related and may affect Firebase rules or signup flow.
+
+Example 2:
+Existing task:
+"Improve landing page hero section"
+New prompt:
+"Add rotation field to Unity exported JSON"
+Decision:
+create_new_task
+Reason:
+Different project area and unrelated files.
+
+Example 3:
+Existing task:
+"Refactor AuthManager.cs"
+Locked files:
+Assets/Scripts/AuthManager.cs
+New prompt:
+"Change the login error popup text"
+Decision:
+queue_behind_conflicting_task
+Reason:
+Different subtask but likely touches the locked AuthManager/login UI files.
+
+Implementation details:
+
+The extension should have this folder structure:
+
+```text
+cursor-ai-orchestrator/
+  package.json
+  tsconfig.json
+  src/
+    extension.ts
+    orchestrator/
+      TaskStore.ts
+      TaskRouter.ts
+      FileLockManager.ts
+      ClassifierService.ts
+      WorkerManager.ts
+      types.ts
+    workers/
+      MockWorker.ts
+      AgentWorker.ts
+    webview/
+      OrchestratorPanel.ts
+      ui/
+        index.html
+        main.js
+        styles.css
+```
+
+Build the MVP in small, clean steps.
+
+Step 1:
+Create the VS Code extension boilerplate.
+
+Step 2:
+Create the sidebar webview.
+
+Step 3:
+Implement the task store and task rendering.
+
+Step 4:
+Implement prompt submission from webview to extension backend.
+
+Step 5:
+Implement classifier interface.
+
+Step 6:
+Implement a temporary mock classifier that uses simple keyword similarity and file overlap.
+
+Step 7:
+Implement real LLM classifier behind the same interface.
+
+Step 8:
+Implement file locks.
+
+Step 9:
+Implement mock worker execution.
+
+Step 10:
+Add task queue behavior.
+
+Step 11:
+Add persistence.
+
+Step 12:
+Add polish to the UI.
+
+For the first working version, use the mock classifier and mock worker. After that, add an LLM classifier.
+
+The first output should include:
+
+1. Full extension scaffold
+2. All important TypeScript files
+3. package.json commands
+4. How to run the extension in development
+5. A short explanation of how to replace the mock worker with a real agent
+6. A short explanation of how to replace the mock classifier with an LLM classifier
+
+Important engineering rules:
+
+* Keep the architecture modular.
+* Do not hardcode Cursor internals.
+* Make it work in VS Code first, so it also works in Cursor.
+* Use strict TypeScript.
+* Avoid overengineering.
+* Make task routing easy to debug.
+* Log every routing decision.
+* Every task should have a human-readable reason for why it was created or appended.
+* Do not allow two running workers to modify the same locked file.
+* Prefer queueing over unsafe parallel edits.
+* The UI should be simple but clear.
