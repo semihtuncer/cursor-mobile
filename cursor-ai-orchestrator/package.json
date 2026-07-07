@@ -1,0 +1,91 @@
+{
+  "name": "cursor-ai-orchestrator",
+  "displayName": "AI Orchestrator",
+  "description": "A lightweight VS Code/Cursor extension for routing concurrent AI coding prompts into task queues.",
+  "version": "0.0.1",
+  "publisher": "cursor-ai-orchestrator",
+  "private": true,
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:aiOrchestrator.panel",
+    "onCommand:aiOrchestrator.openPanel",
+    "onCommand:aiOrchestrator.submitPrompt",
+    "onCommand:aiOrchestrator.clearCompleted",
+    "onCommand:aiOrchestrator.cancelTask"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiOrchestrator.openPanel",
+        "title": "AI Orchestrator: Open Panel"
+      },
+      {
+        "command": "aiOrchestrator.submitPrompt",
+        "title": "AI Orchestrator: Submit Prompt"
+      },
+      {
+        "command": "aiOrchestrator.clearCompleted",
+        "title": "AI Orchestrator: Clear Completed Tasks"
+      },
+      {
+        "command": "aiOrchestrator.cancelTask",
+        "title": "AI Orchestrator: Cancel Task"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiOrchestrator",
+          "title": "AI Orchestrator",
+          "icon": "resources/orchestrator.svg"
+        }
+      ]
+    },
+    "views": {
+      "aiOrchestrator": [
+        {
+          "type": "webview",
+          "id": "aiOrchestrator.panel",
+          "name": "AI Orchestrator"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Orchestrator",
+      "properties": {
+        "aiOrchestrator.llm.endpoint": {
+          "type": "string",
+          "default": "",
+          "description": "Optional HTTP endpoint for the LLM classifier. If empty, the mock classifier is used."
+        },
+        "aiOrchestrator.llm.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Optional API key for the LLM classifier endpoint."
+        },
+        "aiOrchestrator.worker.enableTerminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Reserved for future real agent workers that need terminal access."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "check": "tsc --noEmit -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "@types/vscode": "^1.92.0",
+    "typescript": "^5.5.4"
+  }
+}
