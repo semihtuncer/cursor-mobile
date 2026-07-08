@@ -10,6 +10,12 @@ const queuedTasks = document.getElementById("queued-tasks");
 const completedTasks = document.getElementById("completed-tasks");
 const failedTasks = document.getElementById("failed-tasks");
 const locks = document.getElementById("locks");
+const taskCountPill = document.getElementById("task-count-pill");
+const activeCount = document.getElementById("active-count");
+const queuedCount = document.getElementById("queued-count");
+const completedCount = document.getElementById("completed-count");
+const failedCount = document.getElementById("failed-count");
+const lockCount = document.getElementById("lock-count");
 
 submitButton.addEventListener("click", submitPrompt);
 clearCompletedButton.addEventListener("click", () => vscode.postMessage({ type: "clearCompleted" }));
@@ -46,11 +52,18 @@ function render() {
   const completed = snapshot.tasks.filter((task) => task.status === "completed");
   const failed = snapshot.tasks.filter((task) => ["failed", "blocked"].includes(task.status));
 
+  taskCountPill.textContent = String(snapshot.tasks.length);
+  activeCount.textContent = String(running.length);
+  queuedCount.textContent = String(queued.length);
+  completedCount.textContent = String(completed.length);
+  failedCount.textContent = String(failed.length);
+  lockCount.textContent = String(snapshot.locks.length);
+
   renderLocks();
-  renderTaskList(activeTasks, running, "No active tasks.");
-  renderTaskList(queuedTasks, queued, "No queued tasks.");
-  renderTaskList(completedTasks, completed, "No completed tasks.");
-  renderTaskList(failedTasks, failed, "No failed or blocked tasks.");
+  renderTaskList(activeTasks, running, "No active chats.");
+  renderTaskList(queuedTasks, queued, "Queue is empty.");
+  renderTaskList(completedTasks, completed, "No completed chats.");
+  renderTaskList(failedTasks, failed, "Nothing needs attention.");
 }
 
 function renderLocks() {
@@ -62,8 +75,20 @@ function renderLocks() {
 
   for (const lock of snapshot.locks) {
     const row = document.createElement("div");
-    row.className = "lock-row";
-    row.textContent = `${lock.filePath} -> ${shortId(lock.taskId)}`;
+    row.className = "lock-banner";
+
+    const icon = document.createElement("span");
+    icon.className = "lock-icon";
+    icon.textContent = "▣";
+
+    const text = document.createElement("span");
+    text.textContent = lock.filePath;
+
+    const owner = document.createElement("span");
+    owner.className = "lock-owner";
+    owner.textContent = shortId(lock.taskId);
+
+    row.append(icon, text, owner);
     locks.appendChild(row);
   }
 }
@@ -82,33 +107,50 @@ function renderTaskList(container, tasks, emptyText) {
 
 function taskCard(task) {
   const card = document.createElement("article");
-  card.className = `task-card status-${task.status}`;
+  card.className = `task-banner status-${task.status}`;
 
   const header = document.createElement("div");
-  header.className = "task-header";
+  header.className = "banner-main";
+
+  const statusDot = document.createElement("span");
+  statusDot.className = "status-dot";
 
   const title = document.createElement("h3");
   title.textContent = task.title;
+
+  const titleWrap = document.createElement("div");
+  titleWrap.className = "banner-copy";
+  titleWrap.append(title, bannerSummary(task));
 
   const status = document.createElement("span");
   status.className = "status-pill";
   status.textContent = task.status;
 
-  header.append(title, status);
+  header.append(statusDot, titleWrap, status);
   card.appendChild(header);
 
-  card.appendChild(metaRow("Confidence", confidenceFromSummary(task.summary)));
-  card.appendChild(metaRow("Queue length", String(task.queue.length)));
-  card.appendChild(metaRow("Files touched", formatList(task.filesTouched)));
-  card.appendChild(metaRow("Predicted files", formatList(task.predictedFiles)));
-  card.appendChild(metaRow("Areas", formatList(task.featureAreas)));
-  card.appendChild(metaRow("Latest summary", latestSummary(task.summary)));
+  const chips = document.createElement("div");
+  chips.className = "banner-chips";
+  chips.append(
+    chip(`conf ${confidenceFromSummary(task.summary)}`),
+    chip(`${task.queue.length} queued`),
+    chip(formatList(task.featureAreas, "no area"))
+  );
+  card.appendChild(chips);
+
+  const files = compactFiles(task);
+  if (files) {
+    const fileLine = document.createElement("div");
+    fileLine.className = "file-line";
+    fileLine.textContent = files;
+    card.appendChild(fileLine);
+  }
 
   if (task.queue.length > 0) {
     const queue = document.createElement("div");
-    queue.className = "queue-items";
+    queue.className = "prompt-batch";
     const label = document.createElement("strong");
-    label.textContent = "Queued prompts";
+    label.textContent = "Queued chat prompts";
     queue.appendChild(label);
     for (const prompt of task.queue) {
       queue.appendChild(queuePromptRow(task, prompt));
@@ -134,7 +176,7 @@ function taskCard(task) {
 
 function queuePromptRow(task, prompt) {
   const row = document.createElement("div");
-  row.className = "queue-prompt";
+  row.className = "prompt-banner";
 
   const text = document.createElement("span");
   text.textContent = prompt.text;
@@ -188,6 +230,13 @@ function actionButton(label, handler, variant = "secondary") {
   return button;
 }
 
+function chip(text) {
+  const element = document.createElement("span");
+  element.className = "chip";
+  element.textContent = text;
+  return element;
+}
+
 function empty(text) {
   const element = document.createElement("p");
   element.className = "empty";
@@ -195,12 +244,29 @@ function empty(text) {
   return element;
 }
 
-function formatList(values) {
-  return values.length > 0 ? values.join(", ") : "-";
+function formatList(values, fallback = "-") {
+  return values.length > 0 ? values.join(", ") : fallback;
 }
 
 function latestSummary(summary) {
   return summary.split("\n").filter(Boolean).slice(-2).join(" ");
+}
+
+function bannerSummary(task) {
+  const summary = document.createElement("p");
+  summary.textContent = latestSummary(task.summary);
+  return summary;
+}
+
+function compactFiles(task) {
+  const files = [...new Set([...task.filesTouched, ...task.predictedFiles])];
+  if (files.length === 0) {
+    return "";
+  }
+
+  const visible = files.slice(0, 2).join(", ");
+  const overflow = files.length > 2 ? ` +${files.length - 2}` : "";
+  return visible + overflow;
 }
 
 function confidenceFromSummary(summary) {

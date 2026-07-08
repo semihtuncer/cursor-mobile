@@ -9,43 +9,61 @@
   </head>
   <body>
     <main class="shell">
-      <header class="hero">
-        <h1>AI Orchestrator</h1>
-        <p>Route coding prompts into independent or queued AI tasks.</p>
+      <header class="topbar">
+        <div>
+          <h1>AI Orchestrator</h1>
+          <p>Agent-style routing for parallel coding chats.</p>
+        </div>
+        <span id="task-count-pill" class="count-pill">0</span>
       </header>
 
-      <section class="prompt-card">
-        <label for="prompt-input">Prompt</label>
-        <textarea id="prompt-input" rows="5" placeholder="Describe the coding task to route..."></textarea>
+      <section class="composer">
+        <textarea id="prompt-input" rows="3" placeholder="Ask the orchestrator to start or route a task..."></textarea>
         <div class="prompt-actions">
-          <button id="submit-button">Submit</button>
-          <button id="clear-completed-button" class="secondary">Clear completed</button>
+          <span class="hint">Ctrl/Cmd Enter</span>
+          <button id="clear-completed-button" class="ghost">Clear</button>
+          <button id="submit-button">Send</button>
         </div>
       </section>
 
-      <section class="locks-card">
-        <h2>Locked files</h2>
-        <div id="locks"></div>
-      </section>
-
-      <section class="bucket">
-        <h2>Active tasks</h2>
+      <section class="batch">
+        <div class="batch-header">
+          <h2>Active</h2>
+          <span id="active-count" class="batch-count">0</span>
+        </div>
         <div id="active-tasks" class="task-list"></div>
       </section>
 
-      <section class="bucket">
-        <h2>Queued tasks</h2>
+      <section class="batch">
+        <div class="batch-header">
+          <h2>Queued</h2>
+          <span id="queued-count" class="batch-count">0</span>
+        </div>
         <div id="queued-tasks" class="task-list"></div>
       </section>
 
-      <section class="bucket">
-        <h2>Completed tasks</h2>
+      <section class="batch">
+        <div class="batch-header">
+          <h2>Completed</h2>
+          <span id="completed-count" class="batch-count">0</span>
+        </div>
         <div id="completed-tasks" class="task-list"></div>
       </section>
 
-      <section class="bucket">
-        <h2>Failed / blocked tasks</h2>
+      <section class="batch">
+        <div class="batch-header">
+          <h2>Needs attention</h2>
+          <span id="failed-count" class="batch-count">0</span>
+        </div>
         <div id="failed-tasks" class="task-list"></div>
+      </section>
+
+      <section class="locks-drawer">
+        <div class="batch-header">
+          <h2>File locks</h2>
+          <span id="lock-count" class="batch-count">0</span>
+        </div>
+        <div id="locks" class="lock-list"></div>
       </section>
     </main>
 
